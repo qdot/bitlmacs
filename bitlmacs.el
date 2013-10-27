@@ -1,3 +1,5 @@
+(require 'cl)
+
 (defvar bitlmacs/erc-bitlbee-channel
   "&bitlbee"
   "Name of the channel to pull the bitlbee nicklist from")
@@ -47,28 +49,40 @@
     (erc-nicklist-update))
   nil)
 
-(add-hook 'window-configuration-change-hook 'bitlmacs/remove-active-ims)
-(add-hook 'kill-buffer-hook 'bitlmacs/remove-active-ims)
+(defun bitlmacs/close-im ()
+  (bitlmacs/remove-active-ims)
+  (bitlmacs/goto-next-im))
 
-(defun bitlmacs/winmove-update ()
-  "Functions to run on select-window advice"
-  ;; remove flag for the last visited buffer
-  (with-current-buffer (cadr (buffer-list))
-    (bitlmacs/remove-active-ims)))
+(add-hook 'erc-kill-buffer-hook 'bitlmacs/close-im)
 
-(defadvice select-window (after bitlmacs/update-list-winmove activate compile)
-  "After we change windows, if our new buffer is an active IM,
-remove from list"
-  (bitlmacs/winmove-update))
-
+(defun bitlmacs/move-im (i)
+  (let
+      ((erc-privmsg-buffers (erc-buffer-filter 'erc-query-buffer-p)))
+    (bitlmacs/remove-active-ims)
+    (when (eq (length erc-privmsg-buffers) 0)
+      (message "No IM buffer to move to!"))
+    (when (> (length erc-privmsg-buffers) 1)
+      (if (> i 0)
+          (switch-to-buffer (nth i erc-privmsg-buffers))
+        (switch-to-buffer (nth (+ (length erc-privmsg-buffers) i) erc-privmsg-buffers))))))
 
 (defun bitlmacs/goto-next-im ()
   "Make buffer of next IM in buffer list active"
-  )
+  (interactive)
+  (bitlmacs/move-im 1))
 
 (defun bitlmacs/goto-last-im ()
   "Make buffer of previous IM in buffer list active"
-  )
+  (interactive)
+  (bitlmacs/move-im -1))
+
+(defun bitlmacs/setup-bitlmacs ()
+  (when (erc-query-buffer-p (current-buffer))
+    (local-set-key (kbd "C-M-n") 'bitlmacs/goto-last-im)
+    (local-set-key (kbd "C-M-p") 'bitlmacs/goto-next-im))
+  nil)
+
+(add-hook 'erc-mode-hook 'bitlmacs/setup-bitlmacs)
 
 (defun erc-nicklist-insert-contents (channel)
   "Insert the nicklist contents, with text properties and the optional images."
