@@ -57,14 +57,15 @@
 
 (defun bitlmacs/move-im (i)
   (let
-      ((erc-privmsg-buffers (erc-buffer-filter 'erc-query-buffer-p)))
-    (bitlmacs/remove-active-ims)
+     ((erc-privmsg-buffers (erc-buffer-filter 'erc-query-buffer-p)))
     (when (eq (length erc-privmsg-buffers) 0)
       (message "No IM buffer to move to!"))
     (when (> (length erc-privmsg-buffers) 1)
       (if (> i 0)
           (switch-to-buffer (nth i erc-privmsg-buffers))
-        (switch-to-buffer (nth (+ (length erc-privmsg-buffers) i) erc-privmsg-buffers))))))
+        (switch-to-buffer (nth (+ (length erc-privmsg-buffers) i) erc-privmsg-buffers))))
+      (bitlmacs/remove-active-ims)
+      (goto-char (point-max))))
 
 (defun bitlmacs/goto-next-im ()
   "Make buffer of next IM in buffer list active"
