@@ -51,21 +51,27 @@
 
 (defun bitlmacs/close-im ()
   (bitlmacs/remove-active-ims)
-  (bitlmacs/goto-next-im))
+  (let
+      ((erc-privmsg-buffers (erc-buffer-filter 'erc-query-buffer-p)))
+    (if (> (length erc-privmsg-buffers) 0)
+        (bitlmacs/goto-next-im)
+      (progn
+        (bitlmacs/init-bitlmacs-placeholder)
+        (set-buffer "bitlmacs-placeholder")))))
 
 (add-hook 'erc-kill-buffer-hook 'bitlmacs/close-im)
 
 (defun bitlmacs/move-im (i)
   (let
-     ((erc-privmsg-buffers (erc-buffer-filter 'erc-query-buffer-p)))
+      ((erc-privmsg-buffers (erc-buffer-filter 'erc-query-buffer-p)))
     (when (eq (length erc-privmsg-buffers) 0)
       (message "No IM buffer to move to!"))
-    (when (> (length erc-privmsg-buffers) 1)
+    (when (> (length erc-privmsg-buffers) 0)
       (if (> i 0)
           (switch-to-buffer (nth i erc-privmsg-buffers))
         (switch-to-buffer (nth (+ (length erc-privmsg-buffers) i) erc-privmsg-buffers))))
-      (bitlmacs/remove-active-ims)
-      (goto-char (point-max))))
+    (bitlmacs/remove-active-ims)
+    (goto-char (point-max))))
 
 (defun bitlmacs/goto-next-im ()
   "Make buffer of next IM in buffer list active"
@@ -76,6 +82,12 @@
   "Make buffer of previous IM in buffer list active"
   (interactive)
   (bitlmacs/move-im -1))
+
+(defun bitlmacs/init-bitlmacs-placeholder ()
+  (with-current-buffer (get-buffer-create "bitlmacs-placeholder")
+    (local-set-key (kbd "C-M-n") 'bitlmacs/goto-last-im)
+    (local-set-key (kbd "C-M-p") 'bitlmacs/goto-next-im)
+    (setq buffer-read-only t)))
 
 (defun bitlmacs/setup-bitlmacs ()
   (when (erc-query-buffer-p (current-buffer))
@@ -89,6 +101,20 @@
   "Insert the nicklist contents, with text properties and the optional images."
   (setq buffer-read-only nil)
   (erase-buffer)
+  (insert (erc-propertize "Query Buffers"
+                          'face `(:background "darkgreen"))
+          "\n")
+  (dolist (c (erc-buffer-filter 'erc-query-buffer-p))
+    (let* ((bg "black")
+           (nick (buffer-name c)))
+           (when (member nick bitlmacs/active-ims)
+             (setq bg bitlmacs/im-active-color))
+           (insert (erc-propertize nick
+                                   'face `(:background ,bg))
+	      "\n")))
+  (insert (erc-propertize "Buddy List"
+                          'face `(:background "darkgreen"))
+	      "\n")
   (dolist (u (erc-nicklist-channel-users-info channel))
     (let* ((server-user (car u))
 	   (channel-user (cdr u))
@@ -109,8 +135,6 @@
 				 "Login: " login "@" host
 				 away-status))
            (bg "black"))
-      (when (get-buffer nick)
-        (setq bg bitlmacs/im-open-color))
       (when (member nick bitlmacs/active-ims)
         (setq bg bitlmacs/im-active-color))
       (erc-nicklist-insert-medium-name-or-icon host channel (not voice))
